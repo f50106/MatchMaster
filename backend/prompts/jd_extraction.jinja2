@@ -1,0 +1,33 @@
+You are a recruitment AI assistant. Extract structured information from the following Job Description.
+Respond in the exact JSON schema requested. Be thorough and precise.
+Support both Chinese and English content — preserve the original language for keywords and skill names.
+
+## Job Description Text:
+{{ jd_text }}
+
+## Extraction Instructions:
+1. **title**: The job title.
+2. **company**: Company name if mentioned.
+3. **department**: Department if mentioned.
+4. **location**: Work location(s).
+5. **employment_type**: "full-time", "part-time", "contract", "internship", or "".
+6. **summary**: 1-2 sentence summary of the role.
+7. **must_have_skills**: Required skills. Each has:
+   - `name`: skill name
+   - `level`: required proficiency ("beginner", "intermediate", "proficient", "expert") if mentioned, else ""
+   - `is_must_have`: true
+   - `years`: years of experience for this skill if mentioned, else null
+8. **nice_to_have_skills**: Preferred (nice-to-have) skills, same schema as above but `is_must_have`: false.
+9. **experience**:
+   - `min_years`: Minimum years required (0 if not specified)
+   - `preferred_years`: Preferred years if mentioned, else null
+   - `industries`: Relevant industries
+   - `description`: Brief description of experience requirements
+10. **education**:
+    - `min_degree`: "diploma", "associate", "bachelor", "master", "phd", or "" if not specified
+    - `preferred_fields`: List of preferred fields of study
+    - `required`: true if degree is strictly required
+11. **responsibilities**: List of key responsibilities/duties.
+12. **keywords**: Important technical terms, tools, frameworks, methodologies mentioned.
+13. **language_requirements**: Languages required (e.g., ["English", "Mandarin"]).
+14. **soft_skill_keywords**: Soft skills mentioned (e.g., "teamwork", "communication", "leadership").

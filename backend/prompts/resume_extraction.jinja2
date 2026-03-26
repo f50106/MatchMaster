@@ -1,0 +1,37 @@
+You are a recruitment AI assistant. Extract structured information from the following Resume / CV.
+Respond in the exact JSON schema requested. Be thorough and precise.
+Support both Chinese and English content — preserve the original language where appropriate.
+
+## Resume Text:
+{{ resume_text }}
+
+## Extraction Instructions:
+1. **candidate_name**: Full name of the candidate.
+2. **email**: Email address if present.
+3. **phone**: Phone number if present.
+4. **location**: City/region/country.
+5. **summary**: Professional summary / objective (1-2 sentences). If not explicitly stated, synthesize from overall profile.
+6. **skills**: Complete list of technical and professional skills mentioned anywhere in the resume.
+7. **work_experiences**: List of jobs, each with:
+   - `company`: Company/organization name
+   - `title`: Job title
+   - `start_date`: Start date in "YYYY-MM" format (approximate if needed)
+   - `end_date`: End date in "YYYY-MM" format, "present" if current, or ""
+   - `duration_months`: Approximate duration in months (calculate from dates)
+   - `industry`: Industry sector of the company
+   - `description`: Brief description of the role and accomplishments
+   - `skills_used`: Skills used/demonstrated in this role
+8. **education**: List of degrees, each with:
+   - `institution`: School/university name
+   - `degree`: "diploma", "associate", "bachelor", "master", "mba", "phd", or other
+   - `field`: Field of study / major
+   - `graduation_year`: Year of graduation (integer or null)
+   - `gpa`: GPA or equivalent if mentioned, else ""
+9. **certifications**: List of professional certifications, each with:
+   - `name`: Certification name
+   - `issuer`: Issuing organization
+   - `year`: Year obtained (integer or null)
+10. **languages**: List of languages the candidate speaks/writes.
+11. **total_years_experience**: Total professional experience in years (float). Calculate from work history.
+12. **current_title**: Most recent / current job title.
+13. **current_company**: Most recent / current company.

@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Row "just completed" flash animation ─────────────────────────────────────
+   Triggered by adding the `row-complete` class to a table row / list item.
+   Timeline (2 s total):
+     0%   – greyscale placeholder state (already visible as grey)
+     15%  – slight scale-up + shadow lift (draws attention)
+     35%  – Google blue (#4285F4)                           ← "result is here"
+     100% – fade back to transparent
+   The element keeps its normal Tailwind hover classes; this only fires once.
+──────────────────────────────────────────────────────────────────────────────── */
+@keyframes row-complete {
+  0%   { background-color: transparent; transform: scale(1);    box-shadow: none; filter: grayscale(1); }
+  15%  { background-color: transparent; transform: scale(1.012); box-shadow: 0 4px 16px rgba(66,133,244,.18); filter: grayscale(0); }
+  35%  { background-color: #4285F4;     transform: scale(1.006); box-shadow: 0 2px 8px  rgba(66,133,244,.22); filter: grayscale(0); color: #fff; }
+  100% { background-color: transparent; transform: scale(1);    box-shadow: none; filter: grayscale(0); }
+}
+
+.row-complete {
+  animation: row-complete 2s ease-in-out forwards;
+}
+
+/* Same for JD cards in the homepage list */
+@keyframes card-complete {
+  0%   { background-color: #fff; transform: scale(1);     box-shadow: none; filter: grayscale(1); }
+  15%  { background-color: #fff; transform: scale(1.015);  box-shadow: 0 6px 20px rgba(66,133,244,.18); filter: grayscale(0); }
+  35%  { background-color: #4285F4; transform: scale(1.008); box-shadow: 0 3px 10px rgba(66,133,244,.22); filter: grayscale(0); }
+  100% { background-color: #fff;  transform: scale(1);    box-shadow: none; filter: grayscale(0); }
+}
+
+.card-complete {
+  animation: card-complete 2s ease-in-out forwards;
+}
