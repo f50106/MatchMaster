@@ -49,6 +49,18 @@ class DepthAnalyzer(BaseScorer):
         evidence: list[str] = []
         sub_scores: list[tuple[float, float]] = []  # (score, weight)
 
+        # ── Early exit: completely empty resume ──
+        has_experience = bool(resume.work_experiences)
+        has_skills = bool(resume.skills)
+        if not has_experience and not has_skills:
+            return DimensionScore(
+                dimension=self.dimension,
+                score=0.0,
+                weight=0.8,
+                details="No experience or skills data to analyze",
+                evidence=["Resume appears empty or unreadable"],
+            )
+
         exp_count = max(len(resume.work_experiences), 1)
         all_descriptions = " ".join(
             exp.description for exp in resume.work_experiences
@@ -67,7 +79,7 @@ class DepthAnalyzer(BaseScorer):
         elif metrics_per_exp > 0:
             specificity = 0.55
         else:
-            specificity = 0.35
+            specificity = 0.0  # no metrics at all = no specificity
 
         evidence.append(
             f"Specificity: {metric_count} metrics in {exp_count} roles "
@@ -90,7 +102,7 @@ class DepthAnalyzer(BaseScorer):
         elif avg_desc_len >= 5:
             density = 0.40
         else:
-            density = 0.15
+            density = 0.0  # no description content
 
         evidence.append(f"Desc density: avg {avg_desc_len:.0f} words/role")
         sub_scores.append((density, 0.15))
@@ -107,7 +119,7 @@ class DepthAnalyzer(BaseScorer):
         if listed_skills:
             alignment_ratio = len(skills_in_context) / len(listed_skills)
         else:
-            alignment_ratio = 0.5
+            alignment_ratio = 0.0  # no skills = no alignment
 
         if alignment_ratio >= 0.6:
             skill_alignment = 1.0
@@ -115,8 +127,12 @@ class DepthAnalyzer(BaseScorer):
             skill_alignment = 0.75
         elif alignment_ratio >= 0.2:
             skill_alignment = 0.50
-        else:
+        elif alignment_ratio > 0:
             skill_alignment = 0.25
+        else:
+            skill_alignment = 0.0
+
+        if listed_skills and alignment_ratio < 0.2:
             evidence.append(
                 f"⚠ Low alignment: skills listed but rarely in descriptions"
             )
@@ -154,8 +170,10 @@ class DepthAnalyzer(BaseScorer):
                         f"✓ Strong JD coverage: {coverage_ratio:.0%} "
                         f"({jd_in_resume}/{len(jd_skill_names)})"
                     )
+        elif not listed_skills:
+            coverage_score = 0.0  # resume has no skills → nothing to demonstrate
         else:
-            coverage_score = 0.6
+            coverage_score = 0.5  # JD has no skill requirements → neutral
         sub_scores.append((coverage_score, 0.15))
 
         # ── 5. Career progression ──
@@ -170,7 +188,7 @@ class DepthAnalyzer(BaseScorer):
         if version_hits:
             version_score = min(1.0, len(version_hits) / exp_count * 0.4 + 0.5)
         else:
-            version_score = 0.40
+            version_score = 0.0  # no tool/version references
         evidence.append(f"Version specificity: {len(version_hits)} refs")
         sub_scores.append((version_score, 0.10))
 
@@ -193,8 +211,10 @@ class DepthAnalyzer(BaseScorer):
     @staticmethod
     def _career_progression(resume: ParsedResume) -> float:
         exps = resume.work_experiences
-        if len(exps) <= 1:
-            return 0.6  # Cannot assess with single role
+        if len(exps) == 0:
+            return 0.0  # No data to assess
+        if len(exps) == 1:
+            return 0.45  # Single role — can't assess progression, neutral-conservative
 
         levels = [get_seniority_level(exp.title) for exp in exps]
 

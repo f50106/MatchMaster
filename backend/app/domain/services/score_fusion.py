@@ -20,6 +20,11 @@ _CROSS_BONUS = 2.0      # pts added when both stages agree strongly
 _SKILL_HARD_GATE_THRESHOLD = 30   # must-have skill score below this triggers cap
 _SKILL_HARD_GATE_CAP = 45         # max final score when hard gate triggers
 
+# Content sufficiency gate — empty/unreadable resumes
+_CONTENT_MIN_THRESHOLD = 0.4      # below this, content is too sparse for reliable scoring
+_CONTENT_EMPTY_CAP = 5.0          # max score when resume is essentially empty (0 signals)
+_CONTENT_SPARSE_CAP = 25.0        # max score when resume is very sparse (1 signal)
+
 # Role mismatch detection from experience evidence
 _ROLE_MISMATCH_MARKER = "Role mismatch:"
 _ROLE_MISMATCH_CAP = 45           # max final score for discipline mismatch
@@ -43,6 +48,7 @@ class ScoreFusion:
         self,
         deterministic: DeterministicScores,
         llm: LLMScores,
+        content_score: float = 1.0,
     ) -> tuple[float, float, Tier]:
         """Return (final_score, confidence, tier)."""
         det_score = deterministic.weighted_average
@@ -58,6 +64,9 @@ class ScoreFusion:
 
         # ── Hard gate: role-type mismatch ──
         final = self._apply_role_mismatch_gate(final, deterministic)
+
+        # ── Hard gate: content sufficiency ──
+        final = self._apply_content_gate(final, content_score)
 
         final = round(max(0, min(100, final)), 1)
 
@@ -100,6 +109,20 @@ class ScoreFusion:
             if _ROLE_MISMATCH_MARKER in ev:
                 penalized = final * _ROLE_MISMATCH_MULTIPLIER
                 return min(penalized, _ROLE_MISMATCH_CAP)
+        return final
+
+    @staticmethod
+    def _apply_content_gate(final: float, content_score: float) -> float:
+        """Cap final score when resume content is insufficient.
+
+        content_score 0.0 = completely empty (0/5 signals)
+        content_score 0.2 = nearly empty (1/5 signals)
+        content_score 0.4+ = enough data to score normally
+        """
+        if content_score <= 0.0:
+            return min(final, _CONTENT_EMPTY_CAP)
+        if content_score < _CONTENT_MIN_THRESHOLD:
+            return min(final, _CONTENT_SPARSE_CAP)
         return final
 
     # ------------------------------------------------------------------ #

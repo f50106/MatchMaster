@@ -66,6 +66,12 @@ export interface Translations {
   interviewQuestions: string;
   interviewQsBehavioral: string;
   interviewQsTechnical: string;
+  iqFacetTeamRole: string;
+  iqFacetWorkAttitude: string;
+  iqFacetCrossTeam: string;
+  iqFacetStability: string;
+  iqFacetProactiveness: string;
+  iqFocusLabel: string;
   estimatedCost: string;
 
   // Dimensions
@@ -171,6 +177,12 @@ const zh: Translations = {
   interviewQuestions: '建議面試問題',
   interviewQsBehavioral: '人格特質',
   interviewQsTechnical: '技術深度',
+  iqFacetTeamRole: '團隊定位',
+  iqFacetWorkAttitude: '工作態度',
+  iqFacetCrossTeam: '跨團隊能力',
+  iqFacetStability: '穩定性與自制力',
+  iqFacetProactiveness: '積極度',
+  iqFocusLabel: '探測面向',
   estimatedCost: '預估費用',
 
   dimTechnicalSkills: '技術技能',
@@ -269,6 +281,12 @@ const en: Translations = {
   interviewQuestions: 'Suggested Interview Questions',
   interviewQsBehavioral: 'Soft Skills',
   interviewQsTechnical: 'Technical Depth',
+  iqFacetTeamRole: 'Team Role',
+  iqFacetWorkAttitude: 'Work Attitude',
+  iqFacetCrossTeam: 'Cross-Team',
+  iqFacetStability: 'Stability & Discipline',
+  iqFacetProactiveness: 'Proactiveness',
+  iqFocusLabel: 'Focus',
   estimatedCost: 'Est. Cost',
 
   dimTechnicalSkills: 'Technical Skills',

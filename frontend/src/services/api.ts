@@ -34,7 +34,7 @@ export interface EvaluationDetail extends EvaluationSummary {
   jd_id: string;
   deterministic_scores: Record<string, unknown> | null;
   llm_scores: Record<string, unknown> | null;
-  interview_questions: string[] | null;
+  interview_questions: Record<string, unknown> | string[] | null;
   token_usage: Record<string, number> | null;
 }
 

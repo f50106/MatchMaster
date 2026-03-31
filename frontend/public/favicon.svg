@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- White circle background with blue border -->
+  <circle cx="32" cy="32" r="30" fill="white" stroke="#3730a3" stroke-width="3"/>
+  <!-- Blue M letterform, bold, centered -->
+  <text
+    x="32"
+    y="45"
+    font-family="Arial Black, Arial, sans-serif"
+    font-size="36"
+    font-weight="900"
+    fill="#3730a3"
+    text-anchor="middle"
+    dominant-baseline="auto"
+    letter-spacing="-1"
+  >M</text>
+</svg>

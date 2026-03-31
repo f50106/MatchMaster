@@ -94,9 +94,15 @@ class LLMScores(BaseModel):
 
     overall_score: float = 0.0
     meta_summary: str = ""
+    meta_summary_en: str = ""
+    meta_summary_zh: str = ""
     interview_questions: list[str] | dict = Field(default_factory=list)
     strengths: list[str] = Field(default_factory=list)
+    strengths_en: list[str] = Field(default_factory=list)
+    strengths_zh: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
+    weaknesses_en: list[str] = Field(default_factory=list)
+    weaknesses_zh: list[str] = Field(default_factory=list)
 
     # Weighted importance per dimension
     _DIM_WEIGHTS: dict[str, float] = {

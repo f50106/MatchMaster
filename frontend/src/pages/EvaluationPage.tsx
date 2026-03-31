@@ -139,7 +139,7 @@ export default function EvaluationPage() {
   const { evalId } = useParams<{ evalId: string }>();
   const [ev, setEv] = useState<EvaluationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const dimLabels = useMemo<Record<string, string>>(() => ({
     technical_skills: t.dimTechnicalSkills,
@@ -232,17 +232,49 @@ export default function EvaluationPage() {
     return d && d.score === 50 && !d.reasoning;
   });
 
-  // Extract strengths / weaknesses from LLM scores
-  const strengths = (llm?.strengths as string[] | undefined) ?? [];
-  const weaknesses = (llm?.weaknesses as string[] | undefined) ?? [];
+  // Extract strengths / weaknesses from LLM scores — locale-aware
+  const strengths: string[] = locale === 'zh'
+    ? (llm?.strengths_zh as string[] | undefined)?.length ? (llm.strengths_zh as string[]) : (llm?.strengths as string[] | undefined) ?? []
+    : (llm?.strengths_en as string[] | undefined)?.length ? (llm.strengths_en as string[]) : (llm?.strengths as string[] | undefined) ?? [];
+  const weaknesses: string[] = locale === 'zh'
+    ? (llm?.weaknesses_zh as string[] | undefined)?.length ? (llm.weaknesses_zh as string[]) : (llm?.weaknesses as string[] | undefined) ?? []
+    : (llm?.weaknesses_en as string[] | undefined)?.length ? (llm.weaknesses_en as string[]) : (llm?.weaknesses as string[] | undefined) ?? [];
 
-  // Interview questions — handle both flat list (legacy) and structured {behavioral, technical}
+  // Meta summary — locale-aware
+  const metaSummary: string = locale === 'zh'
+    ? (llm?.meta_summary_zh as string || '') || ev.meta_summary
+    : (llm?.meta_summary_en as string || '') || ev.meta_summary;
+
+  // Interview questions — handle 5-facet (new), behavioral/technical (legacy), and flat list
   const rawQs = ev.interview_questions;
-  const isStructuredQs = rawQs && !Array.isArray(rawQs) && typeof rawQs === 'object';
+  const isObj = rawQs && !Array.isArray(rawQs) && typeof rawQs === 'object';
+
+  // 5-facet detection: new format has team_role, work_attitude, etc.
+  const FACET_KEYS = ['team_role', 'work_attitude', 'cross_team', 'stability', 'proactiveness'] as const;
+  type FacetKey = typeof FACET_KEYS[number];
+  interface IQItem { question_en?: string; question_zh?: string; focus?: string; }
+  const facetLabelMap: Record<FacetKey, string> = {
+    team_role: t.iqFacetTeamRole,
+    work_attitude: t.iqFacetWorkAttitude,
+    cross_team: t.iqFacetCrossTeam,
+    stability: t.iqFacetStability,
+    proactiveness: t.iqFacetProactiveness,
+  };
+  const facetEmojiMap: Record<FacetKey, string> = {
+    team_role: '🎯', work_attitude: '⚖️', cross_team: '🤝',
+    stability: '🔒', proactiveness: '🚀',
+  };
+
+  const is5Facet = isObj && FACET_KEYS.some(k => Array.isArray((rawQs as any)[k]) && (rawQs as any)[k].length > 0);
+  const facetQs: Record<FacetKey, IQItem[]> = is5Facet
+    ? Object.fromEntries(FACET_KEYS.map(k => [k, ((rawQs as any)[k] ?? []) as IQItem[]])) as Record<FacetKey, IQItem[]>
+    : Object.fromEntries(FACET_KEYS.map(k => [k, [] as IQItem[]])) as Record<FacetKey, IQItem[]>;
+
+  // Legacy fallback
   const flatQs = Array.isArray(rawQs) ? rawQs as string[] : [];
-  const behavioralQs: string[] = isStructuredQs ? ((rawQs as any).behavioral ?? []) : [];
-  const technicalQs: string[] = isStructuredQs ? ((rawQs as any).technical ?? []) : [];
-  const hasQs = flatQs.length > 0 || behavioralQs.length > 0 || technicalQs.length > 0;
+  const behavioralQs: string[] = (!is5Facet && isObj) ? ((rawQs as any).behavioral ?? []) : [];
+  const technicalQs: string[] = (!is5Facet && isObj) ? ((rawQs as any).technical ?? []) : [];
+  const hasQs = is5Facet || flatQs.length > 0 || behavioralQs.length > 0 || technicalQs.length > 0;
 
   return (
     <div>
@@ -293,10 +325,10 @@ export default function EvaluationPage() {
       </div>
 
       {/* ── Executive Summary ── */}
-      {ev.meta_summary && (
+      {metaSummary && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{t.executiveSummary}</h2>
-          <p className="text-gray-700 leading-relaxed">{ev.meta_summary}</p>
+          <p className="text-gray-700 leading-relaxed">{metaSummary}</p>
         </div>
       )}
 
@@ -403,7 +435,38 @@ export default function EvaluationPage() {
       {hasQs && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{t.interviewQuestions}</h2>
-          {flatQs.length > 0 ? (
+
+          {/* ── New 5-facet format ── */}
+          {is5Facet ? (
+            <div className="space-y-6">
+              {FACET_KEYS.map(facet => {
+                const qs = facetQs[facet];
+                if (!qs || qs.length === 0) return null;
+                return (
+                  <div key={facet}>
+                    <h3 className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-3">
+                      {facetLabelMap[facet]}
+                    </h3>
+                    <div className="space-y-4">
+                      {qs.map((q, i) => {
+                        const qText = locale === 'zh' ? (q.question_zh || q.question_en || '') : (q.question_en || q.question_zh || '');
+                        return (
+                        <div key={i} className="flex gap-3 items-start">
+                          <span className="text-indigo-400 flex-shrink-0 mt-1.5 leading-none">●</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-800 text-sm leading-relaxed">{qText}</p>
+
+                          </div>
+                        </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : flatQs.length > 0 ? (
+            /* ── Legacy: flat list ── */
             <ol className="space-y-3">
               {flatQs.map((q, i) => (
                 <li key={i} className="flex gap-3 items-start">
@@ -415,6 +478,7 @@ export default function EvaluationPage() {
               ))}
             </ol>
           ) : (
+            /* ── Legacy: behavioral/technical ── */
             <div className="space-y-5">
               {behavioralQs.length > 0 && (
                 <div>

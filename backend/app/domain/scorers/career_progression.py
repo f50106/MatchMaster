@@ -16,10 +16,19 @@ class CareerProgressionScorer(BaseScorer):
         evidence: list[str] = []
         exps = resume.work_experiences
 
-        if len(exps) <= 1:
+        if len(exps) == 0:
             return DimensionScore(
                 dimension=self.dimension,
-                score=60.0,
+                score=0.0,
+                weight=0.6,
+                details="No work experience — cannot assess progression",
+                evidence=["No work experience entries found"],
+            )
+
+        if len(exps) == 1:
+            return DimensionScore(
+                dimension=self.dimension,
+                score=45.0,
                 weight=0.6,
                 details="Single role — cannot assess progression",
                 evidence=["Only 1 work experience entry"],

@@ -386,7 +386,7 @@ export default function JDPage() {
                         className={[
                           'border-t transition-colors select-none',
                           justCompleted.has(ev.id) ? 'row-complete' : '',
-                          isFailed && !selectMode ? 'cursor-not-allowed opacity-90' : 'cursor-pointer',
+                          isPending ? 'cursor-default pointer-events-none' : isFailed && !selectMode ? 'cursor-not-allowed opacity-90' : 'cursor-pointer',
                           isSelected
                             ? 'bg-red-50 hover:bg-red-100'
                             : selectMode

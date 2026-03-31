@@ -23,6 +23,16 @@ class ExperienceCalculator(BaseScorer):
     async def score(self, jd: ParsedJD, resume: ParsedResume) -> DimensionScore:
         evidence: list[str] = []
 
+        # Early exit: no work experience at all
+        if not resume.work_experiences and not resume.total_years_experience:
+            return DimensionScore(
+                dimension=self.dimension,
+                score=0.0,
+                weight=1.5,
+                details="No work experience data found",
+                evidence=["Missing: work experience"],
+            )
+
         # ── Role-type mismatch detection ──
         candidate_titles = [exp.title for exp in resume.work_experiences if exp.title]
         is_mismatch, mismatch_ratio, mismatch_explanation = detect_role_mismatch(

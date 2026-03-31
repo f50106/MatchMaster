@@ -37,6 +37,30 @@ _JD_CACHE_TTL = 7 * 24 * 3600  # 7 days
 _RESUME_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _MAX_TEXT_CHARS = 50_000  # ~12,500 tokens — truncate beyond this to prevent OOM / token overflow
 
+# Content sufficiency: minimum data signals for a valid resume
+_MIN_CONTENT_SIGNALS = 2  # need at least 2 of: name, skills, experience, education
+
+
+def _resume_content_score(resume: ParsedResume) -> float:
+    """Return 0.0-1.0 indicating how much usable content the parsed resume has.
+
+    0.0 = essentially empty (blank page / unreadable PDF)
+    1.0 = all major sections present
+    """
+    signals = 0
+    total = 5
+    if resume.candidate_name.strip():
+        signals += 1
+    if resume.skills:
+        signals += 1
+    if resume.work_experiences:
+        signals += 1
+    if resume.education:
+        signals += 1
+    if resume.summary.strip():
+        signals += 1
+    return signals / total
+
 
 # ── Structured Output schemas for OpenAI ──
 
@@ -73,9 +97,18 @@ class ResumeExtractionOutput(BaseModel):
     current_company: str = ""
 
 
+class InterviewQuestion(BaseModel):
+    question_en: str = ""
+    question_zh: str = ""
+    focus: str = ""
+
+
 class InterviewQuestionsOutput(BaseModel):
-    behavioral: list[str] = Field(default_factory=list)
-    technical: list[str] = Field(default_factory=list)
+    team_role: list[InterviewQuestion] = Field(default_factory=list)
+    work_attitude: list[InterviewQuestion] = Field(default_factory=list)
+    cross_team: list[InterviewQuestion] = Field(default_factory=list)
+    stability: list[InterviewQuestion] = Field(default_factory=list)
+    proactiveness: list[InterviewQuestion] = Field(default_factory=list)
 
 
 class ConsolidatedEvalOutput(BaseModel):
@@ -87,35 +120,68 @@ class ConsolidatedEvalOutput(BaseModel):
     soft_skills: dict[str, Any] = {}
     language_fit: dict[str, Any] = {}
     overall_score: float = 0.0
-    meta_summary: str = ""
+    meta_summary: str = ""  # legacy fallback
+    meta_summary_en: str = ""
+    meta_summary_zh: str = ""
     interview_questions: InterviewQuestionsOutput = Field(default_factory=InterviewQuestionsOutput)
-    strengths: list[str] = []
-    weaknesses: list[str] = []
+    strengths: list[str] = []  # legacy fallback
+    strengths_en: list[str] = []
+    strengths_zh: list[str] = []
+    weaknesses: list[str] = []  # legacy fallback
+    weaknesses_en: list[str] = []
+    weaknesses_zh: list[str] = []
 
     @field_validator("interview_questions", mode="before")
     @classmethod
     def coerce_questions(cls, v: object) -> dict:
-        """Accept new {behavioral, technical} dict or legacy flat list."""
-        def _extract(lst: object) -> list[str]:
+        """Accept new 5-facet format, legacy {behavioral,technical}, or flat list."""
+        _FACETS = ("team_role", "work_attitude", "cross_team", "stability", "proactiveness")
+        _LEGACY = ("behavioral", "technical")
+
+        def _extract_q(item: object) -> dict:
+            """Normalise a single question into {question_en, question_zh, focus}."""
+            if isinstance(item, str):
+                return {"question_en": item, "question_zh": "", "focus": ""}
+            if isinstance(item, dict):
+                # Already new format
+                if "question_en" in item:
+                    return {
+                        "question_en": item.get("question_en", ""),
+                        "question_zh": item.get("question_zh", ""),
+                        "focus": item.get("focus", ""),
+                    }
+                # Legacy: {q:, question:, text:}
+                text = item.get("q") or item.get("question") or item.get("text") or ""
+                return {"question_en": str(text), "question_zh": "", "focus": ""}
+            return {"question_en": str(item), "question_zh": "", "focus": ""}
+
+        def _extract_list(lst: object) -> list[dict]:
             if not isinstance(lst, list):
                 return []
-            result: list[str] = []
-            for item in lst:
-                if isinstance(item, str):
-                    result.append(item)
-                elif isinstance(item, dict):
-                    text = item.get("q") or item.get("question") or item.get("text") or ""
-                    if text:
-                        result.append(str(text))
-            return result
+            return [_extract_q(item) for item in lst if item]
 
         if isinstance(v, dict):
-            return {
-                "behavioral": _extract(v.get("behavioral", [])),
-                "technical": _extract(v.get("technical", [])),
-            }
-        # Legacy flat list → put all into technical
-        return {"behavioral": [], "technical": _extract(v)}
+            # New 5-facet format
+            if any(k in v for k in _FACETS):
+                return {f: _extract_list(v.get(f, [])) for f in _FACETS}
+            # Legacy behavioral/technical → map to facets
+            beh = _extract_list(v.get("behavioral", []))
+            tech = _extract_list(v.get("technical", []))
+            combined = beh + tech
+            # Distribute legacy questions across facets evenly
+            result: dict[str, list[dict]] = {f: [] for f in _FACETS}
+            for i, q in enumerate(combined):
+                facet = _FACETS[i % len(_FACETS)]
+                result[facet].append(q)
+            return result
+
+        # Flat list of strings → distribute across facets
+        flat = _extract_list(v)
+        result_flat: dict[str, list[dict]] = {f: [] for f in _FACETS}
+        for i, q in enumerate(flat):
+            facet = _FACETS[i % len(_FACETS)]
+            result_flat[facet].append(q)
+        return result_flat
 
 
 class EvaluationOrchestrator:
@@ -262,8 +328,8 @@ class EvaluationOrchestrator:
         def _to_dim(d: dict, name: str) -> LLMDimensionScore:
             score = d.get("score")
             if score is None or not isinstance(score, (int, float)):
-                logger.warning("LLM dimension '%s' missing or invalid score, defaulting to 50", name)
-                score = 50.0
+                logger.warning("LLM dimension '%s' missing or invalid score, defaulting to 10", name)
+                score = 10.0
             score = max(0.0, min(100.0, float(score)))
             return LLMDimensionScore(
                 dimension=name,
@@ -271,6 +337,14 @@ class EvaluationOrchestrator:
                 reasoning=d.get("reasoning", ""),
                 evidence=d.get("evidence", []),
             )
+
+        # Bilingual fields — prefer new _en/_zh, fall back to legacy single field
+        raw_summary_en = data.get("meta_summary_en", "") or data.get("meta_summary", "")
+        raw_summary_zh = data.get("meta_summary_zh", "")
+        raw_strengths_en = data.get("strengths_en", []) or data.get("strengths", [])
+        raw_strengths_zh = data.get("strengths_zh", [])
+        raw_weaknesses_en = data.get("weaknesses_en", []) or data.get("weaknesses", [])
+        raw_weaknesses_zh = data.get("weaknesses_zh", [])
 
         llm_scores = LLMScores(
             technical_skills=_to_dim(data.get("technical_skills", {}), "technical_skills"),
@@ -281,10 +355,16 @@ class EvaluationOrchestrator:
             soft_skills=_to_dim(data.get("soft_skills", {}), "soft_skills"),
             language_fit=_to_dim(data.get("language_fit", {}), "language_fit"),
             overall_score=data.get("overall_score", 0),
-            meta_summary=data.get("meta_summary", ""),
+            meta_summary=raw_summary_en,
+            meta_summary_en=raw_summary_en,
+            meta_summary_zh=raw_summary_zh,
             interview_questions=data.get("interview_questions", []),
-            strengths=data.get("strengths", []),
-            weaknesses=data.get("weaknesses", []),
+            strengths=raw_strengths_en,
+            strengths_en=raw_strengths_en,
+            strengths_zh=raw_strengths_zh,
+            weaknesses=raw_weaknesses_en,
+            weaknesses_en=raw_weaknesses_en,
+            weaknesses_zh=raw_weaknesses_zh,
         )
 
         usage = TokenUsage(
@@ -329,6 +409,14 @@ class EvaluationOrchestrator:
             _add_usage(jd_usage)
             _add_usage(resume_usage)
 
+            # ── Content sufficiency check ──
+            content_score = _resume_content_score(parsed_resume)
+            if content_score < _MIN_CONTENT_SIGNALS / 5:
+                logger.warning(
+                    "Resume content score %.2f < threshold %.2f — insufficient data",
+                    content_score, _MIN_CONTENT_SIGNALS / 5,
+                )
+
             # Stage 1: Deterministic scoring
             if status_callback:
                 await status_callback(EvaluationStatus.SCORING_DETERMINISTIC)
@@ -353,7 +441,7 @@ class EvaluationOrchestrator:
                 await status_callback(EvaluationStatus.FUSING)
             result.status = EvaluationStatus.FUSING
 
-            final_score, confidence, tier = self._fusion.fuse(det_scores, llm_scores)
+            final_score, confidence, tier = self._fusion.fuse(det_scores, llm_scores, content_score)
             result.final_score = final_score
             result.confidence = confidence
             result.tier = tier
