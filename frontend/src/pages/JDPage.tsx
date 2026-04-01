@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import FileUpload from '../components/FileUpload';
 import TierBadge from '../components/TierBadge';
+import BackButton from '../components/BackButton';
 import { useI18n } from '../i18n';
 import { useUnread } from '../hooks/useUnread';
 import {
@@ -272,7 +273,13 @@ export default function JDPage() {
   return (
     <div>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">{jd.file_name ? stripExt(jd.file_name) : jd.title}</h1>
+        {/* Title row: back button left, title centred */}
+        <div className="relative flex items-center justify-center min-h-[40px]">
+          <div className="absolute left-0 hidden sm:block">
+            <BackButton />
+          </div>
+          <h1 className="text-2xl font-bold text-center px-28 truncate">{jd.file_name ? stripExt(jd.file_name) : jd.title}</h1>
+        </div>
 
         {/* Upload Resumes */}
         <section>

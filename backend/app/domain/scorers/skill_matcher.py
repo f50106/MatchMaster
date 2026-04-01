@@ -102,10 +102,24 @@ class SkillMatcher(BaseScorer):
             if sim >= _SIM_PARTIAL:
                 evidence.append(f"☆ {req.name} → {best_skill} ({sim:.0%})")
 
-        must_avg = sum(must_scores) / len(must_scores) if must_scores else 1.0
-        nice_avg = sum(nice_scores) / len(nice_scores) if nice_scores else 0.5
-
-        raw_score = must_avg * _MUST_HAVE_WEIGHT + nice_avg * _NICE_TO_HAVE_WEIGHT
+        # Weight redistribution: when one category is absent, all weight
+        # goes to the other.  When BOTH are absent, score is neutral (0.5).
+        if must_scores and nice_scores:
+            must_avg = sum(must_scores) / len(must_scores)
+            nice_avg = sum(nice_scores) / len(nice_scores)
+            raw_score = must_avg * _MUST_HAVE_WEIGHT + nice_avg * _NICE_TO_HAVE_WEIGHT
+        elif must_scores:
+            must_avg = sum(must_scores) / len(must_scores)
+            nice_avg = 0.0
+            raw_score = must_avg  # 100% on must-have
+        elif nice_scores:
+            must_avg = 0.0
+            nice_avg = sum(nice_scores) / len(nice_scores)
+            raw_score = nice_avg  # 100% on nice-to-have
+        else:
+            must_avg = 0.0
+            nice_avg = 0.0
+            raw_score = 0.5  # No skill requirements — true neutral
         final_score = round(raw_score * 100, 1)
 
         return DimensionScore(

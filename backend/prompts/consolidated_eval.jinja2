@@ -70,6 +70,14 @@ You are evaluating whether a candidate is an OBJECTIVE FIT for the role. Your go
    - **Do NOT penalize in scoring** for missing metrics — this is a resume writing style issue. Instead, generate targeted interview questions that ask the candidate to provide specific numbers (work_attitude facet)
    - Scale: candidates with strong quantified achievements should score 3-5 points HIGHER in work_experience and technical_skills than equivalently experienced candidates without metrics
 
+9. **Overqualification awareness — dual signal**:
+   - When a candidate clearly exceeds the JD seniority level (e.g., Architect/Principal applying for a mid-level Engineer role, or 15+ years experience for a 3-5 year requirement), treat this as BOTH a strength AND a risk:
+     - **Strength**: Deep expertise means faster ramp-up, mentoring capability, and architectural insight that benefits the entire team
+     - **Risk**: May become bored, resist IC duties, push for scope creep, or leave quickly if not challenged. Flag this explicitly in **red_flags** reasoning
+   - Do NOT penalize overqualified candidates in technical_skills or work_experience — their skills genuinely exceed requirements
+   - DO generate targeted interview questions asking about motivation: "Why this role at this level?", "What excites you about this position specifically?", "How do you see yourself contributing in a non-leadership capacity?" (stability facet)
+   - In **career_trajectory** reasoning, note the seniority mismatch and whether the candidate's career arc suggests intentional downshift (e.g., work-life balance, domain pivot) vs desperation (e.g., recent layoff, short tenures)
+
 ## Job Description (Parsed):
 {{ jd | tojson(indent=2) }}
 

@@ -30,6 +30,12 @@ _ROLE_MISMATCH_MARKER = "Role mismatch:"
 _ROLE_MISMATCH_CAP = 45           # max final score for discipline mismatch
 _ROLE_MISMATCH_MULTIPLIER = 0.65  # multiplicative penalty on final score
 
+# Deterministic floor gate — when hard evidence says candidate is weak,
+# LLM charity cannot override.  Prevents charitable LLM (typical: 55-70
+# for anyone with *some* content) from inflating clearly unqualified candidates.
+_DET_LOW_THRESHOLD = 30           # det weighted avg below this triggers cap
+_DET_LOW_CAP = 40                 # max final score when det floor gate triggers
+
 
 class ScoreFusion:
     def __init__(
@@ -64,6 +70,9 @@ class ScoreFusion:
 
         # ── Hard gate: role-type mismatch ──
         final = self._apply_role_mismatch_gate(final, deterministic)
+
+        # ── Hard gate: deterministic floor ──
+        final = self._apply_det_floor_gate(final, det_score)
 
         # ── Hard gate: content sufficiency ──
         final = self._apply_content_gate(final, content_score)
@@ -125,6 +134,18 @@ class ScoreFusion:
             return min(final, _CONTENT_SPARSE_CAP)
         return final
 
+    @staticmethod
+    def _apply_det_floor_gate(final: float, det_score: float) -> float:
+        """Cap final score when deterministic evidence is overwhelmingly negative.
+
+        When the evidence-based pipeline scores below threshold, no amount of
+        LLM charity (which typically scores 55-70 for any resume with content)
+        should push the candidate above the cap.
+        """
+        if det_score < _DET_LOW_THRESHOLD:
+            return min(final, _DET_LOW_CAP)
+        return final
+
     # ------------------------------------------------------------------ #
     #  Cross-validation                                                   #
     # ------------------------------------------------------------------ #
@@ -136,10 +157,14 @@ class ScoreFusion:
         """Adjust score based on det↔LLM agreement pattern.
 
         High deterministic + low LLM = probable surface-optimised resume.
+        Low deterministic + high LLM = probable LLM charity / vague resume.
         Both high = genuine strong candidate.
         """
         if det_score >= _CROSS_HIGH and llm_score < _CROSS_LOW:
             # Surface match but LLM found no depth → penalise
+            return final - _CROSS_PENALTY
+        if det_score < 40 and llm_score >= 70:
+            # Evidence says weak but LLM is charitable → penalise
             return final - _CROSS_PENALTY
         if det_score >= _CROSS_HIGH and llm_score >= _CROSS_HIGH:
             # Both stages agree candidate is strong → small bonus

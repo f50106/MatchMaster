@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { getEvaluation, type EvaluationDetail } from '../services/api';
 import { useI18n } from '../i18n';
+import BackButton from '../components/BackButton';
 
 // ── Types ──
 type DimScore = {
@@ -166,23 +167,37 @@ export default function EvaluationPage() {
 
   useEffect(() => {
     if (!evalId) return;
-    getEvaluation(evalId).then((r) => {
-      setEv(r.data);
-      // Clear the unread badge for this evaluation
-      const jdId = r.data.jd_id;
-      if (jdId) {
-        // Inline clear to avoid importing the hook (keep it light)
-        try {
-          const raw = JSON.parse(localStorage.getItem('mm_unread') ?? '{}') as Record<string, string[]>;
-          const set = new Set(raw[jdId] ?? []);
-          set.delete(evalId);
-          if (set.size === 0) delete raw[jdId];
-          else raw[jdId] = Array.from(set);
-          localStorage.setItem('mm_unread', JSON.stringify(raw));
-          window.dispatchEvent(new Event('mm_unread_change'));
-        } catch { /* ignore */ }
-      }
-    }).catch(() => setError(t.loadError ?? 'Failed to load evaluation'));
+
+    const PENDING_STATUSES = new Set(['pending', 'parsing', 'scoring_deterministic', 'scoring_llm', 'fusing']);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchEval = (retryDelay = 2000) => {
+      getEvaluation(evalId).then((r) => {
+        setEv(r.data);
+        // If still in progress, keep polling with back-off (max 6s)
+        if (PENDING_STATUSES.has(r.data.status)) {
+          const nextDelay = Math.min(retryDelay * 1.5, 6000);
+          timeoutId = setTimeout(() => fetchEval(nextDelay), retryDelay);
+          return;
+        }
+        // Completed or failed — clear unread badge
+        const jdId = r.data.jd_id;
+        if (jdId) {
+          try {
+            const raw = JSON.parse(localStorage.getItem('mm_unread') ?? '{}') as Record<string, string[]>;
+            const set = new Set(raw[jdId] ?? []);
+            set.delete(evalId);
+            if (set.size === 0) delete raw[jdId];
+            else raw[jdId] = Array.from(set);
+            localStorage.setItem('mm_unread', JSON.stringify(raw));
+            window.dispatchEvent(new Event('mm_unread_change'));
+          } catch { /* ignore */ }
+        }
+      }).catch(() => setError(t.loadError ?? 'Failed to load evaluation'));
+    };
+
+    fetchEval();
+    return () => { if (timeoutId) clearTimeout(timeoutId); };
   }, [evalId]);
 
   if (error) {
@@ -200,6 +215,17 @@ export default function EvaluationPage() {
     return (
       <div className="flex justify-center items-center h-48">
         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Evaluation data loaded but still processing
+  const PENDING_STATUSES = new Set(['pending', 'parsing', 'scoring_deterministic', 'scoring_llm', 'fusing']);
+  if (ev && PENDING_STATUSES.has(ev.status)) {
+    return (
+      <div className="flex flex-col justify-center items-center h-64 gap-4">
+        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm animate-pulse">{t.analyzing ?? '分析中…'}</p>
       </div>
     );
   }
@@ -279,8 +305,11 @@ export default function EvaluationPage() {
   return (
     <div>
       {/* ── Page Title ── */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold text-gray-900 truncate">
+      <div className="relative flex items-center justify-center mb-5 min-h-[40px]">
+        <div className="absolute left-0 hidden sm:block">
+          <BackButton />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 text-center px-28 truncate">
           {stripExt(ev.resume_file_name) || t.reportTitle}
         </h1>
       </div>

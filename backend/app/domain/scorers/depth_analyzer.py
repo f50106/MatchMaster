@@ -220,8 +220,9 @@ class DepthAnalyzer(BaseScorer):
 
         # Work experiences usually listed newest-first → reverse for chrono
         chrono = list(reversed(levels))
-        up_steps = sum(
-            1 for i in range(1, len(chrono)) if chrono[i] >= chrono[i - 1]
-        )
         total_steps = max(len(chrono) - 1, 1)
-        return min(1.0, 0.4 + 0.6 * (up_steps / total_steps))
+        up = sum(1 for i in range(1, len(chrono)) if chrono[i] > chrono[i - 1])
+        stable = sum(1 for i in range(1, len(chrono)) if chrono[i] == chrono[i - 1])
+        # Strict: up = full credit, stable = partial, down = 0
+        progress = (up * 1.0 + stable * 0.3) / total_steps
+        return min(1.0, 0.3 + 0.7 * progress)

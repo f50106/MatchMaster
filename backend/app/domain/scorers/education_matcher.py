@@ -115,7 +115,7 @@ class EducationMatcher(BaseScorer):
         # Field relevance
         preferred_fields = [f.lower() for f in jd.education.preferred_fields]
         if not preferred_fields:
-            field_score = 0.8  # No preference → neutral
+            field_score = 0.5  # No preference → true neutral
         else:
             field_score = 0.0
             for edu in resume.education:

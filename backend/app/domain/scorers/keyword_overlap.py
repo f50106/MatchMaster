@@ -71,7 +71,7 @@ class KeywordOverlap(BaseScorer):
                 matched_keywords.append(term)
 
         overlap = matched_weight / total_weight if total_weight > 0 else 0.0
-        final_score = round(min(overlap * 120, 100), 1)  # Slight boost: 83% overlap → 100
+        final_score = round(min(overlap * 100, 100), 1)
 
         return DimensionScore(
             dimension=self.dimension,

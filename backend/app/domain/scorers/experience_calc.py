@@ -75,7 +75,7 @@ class ExperienceCalculator(BaseScorer):
         # ── Industry relevance ──
         target_industries = [ind.lower() for ind in jd.experience.industries]
         if not target_industries:
-            industry_ratio = 0.7  # No specific industry required
+            industry_ratio = 0.5  # No specific industry required — true neutral
         else:
             matched = 0
             for exp in resume.work_experiences:
